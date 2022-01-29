@@ -447,30 +447,31 @@ class BotController:
             logger.exception('Exception occurred on `get_msg_from_owner_group()\'')
 
     async def get_command_from_target(self, client: Client, msg: Message) -> None:
-        if re.match(r'^/(del(f)?|b|undo|print)$', msg.text):
-            if msg.text == '/b':
-                for_id = await self.checker.query_forward_from(msg.chat.id, msg.reply_to_message.message_id)
-                await self.add_black_list([for_id.from_chat, for_id.from_user,  # type: ignore
-                                           for_id.forward_from, self.owner_group_id])
-                # To enable delete message, please add `delete other messages' privilege to bot
-                call_delete_msg(30, client.delete_messages, msg.chat.id,
-                                (msg.message_id, msg.reply_to_message.message_id))
-            elif msg.text == '/undo':
-                group_id = msg.reply_to_message.message_id if msg.reply_to_message else None
-                if group_id:
-                    try:
-                        if await self.redis.delete_admin(group_id):
-                            await self.checker.remove_admin(group_id)
-                        await client.send_message(self.owner_group_id, f'Remove `{group_id}` from blacklist',
-                                                  'markdown')
-                    except ValueError:
-                        await client.send_message(self.owner_group_id, f'`{group_id}` not in blacklist', 'markdown')
-            elif msg.text == '/print' and msg.reply_to_message is not None:
-                print(msg.reply_to_message)
-            else:
-                call_delete_msg(20, client.delete_messages, msg.chat.id, msg.message_id)
-                if get_forward_id(msg.reply_to_message):
-                    await self.del_message_by_id(client, msg, self.owner_group_id)
+        if not re.match(r'^/(del(f)?|b|undo|print)$', msg.text):
+            return
+        if msg.text == '/b':
+            for_id = await self.checker.query_forward_from(msg.chat.id, msg.reply_to_message.message_id)
+            await self.add_black_list([for_id.from_chat, for_id.from_user,  # type: ignore
+                                       for_id.forward_from, self.owner_group_id])
+            # To enable delete message, please add `delete other messages' privilege to bot
+            call_delete_msg(30, client.delete_messages, msg.chat.id,
+                            (msg.message_id, msg.reply_to_message.message_id))
+        elif msg.text == '/undo':
+            group_id = msg.reply_to_message.message_id if msg.reply_to_message else None
+            if group_id:
+                try:
+                    if await self.redis.delete_admin(group_id):
+                        await self.checker.remove_admin(group_id)
+                    await client.send_message(self.owner_group_id, f'Remove `{group_id}` from blacklist',
+                                              'markdown')
+                except ValueError:
+                    await client.send_message(self.owner_group_id, f'`{group_id}` not in blacklist', 'markdown')
+        elif msg.text == '/print' and msg.reply_to_message is not None:
+            print(msg.reply_to_message)
+        else:
+            call_delete_msg(20, client.delete_messages, msg.chat.id, msg.message_id)
+            if get_forward_id(msg.reply_to_message):
+                await self.del_message_by_id(client, msg, self.owner_group_id)
 
     @staticmethod
     def get_file_unique_id(msg: Message, _type: str) -> str:
@@ -514,10 +515,8 @@ class BotController:
         forward_target = to
         # spec_target = None if what == 'other' else await self.redis.get(f'{self.redis_prefix}{msg.chat.id}')
         spec_target = None if what == 'other' else await self.redis.get(str(msg.chat.id))
-        if spec_target is None:
-            # spec_target = await self.redis.get(f'{self.redis_prefix}{msg.forward_from_chat.id}')
-            if msg.forward_from_chat:
-                spec_target = await self.redis.get(str(msg.forward_from_chat.id))
+        if spec_target is None and msg.forward_from_chat:
+            spec_target = await self.redis.get(str(msg.forward_from_chat.id))
         if spec_target is not None:
             forward_target = getattr(self.configure, spec_target.decode())
         elif is_bot(msg):
@@ -618,8 +617,7 @@ class BotController:
 
     @staticmethod
     async def change_code(_client: Client, msg: Message) -> None:
-        r = re.match(r'^/pw (.+)$', msg.text)
-        if r:
+        if r := re.match(r'^/pw (.+)$', msg.text):
             await msg.reply('Success changed authorize code.')
 
     async def undo_blacklist_operation(self, client: Client, msg: Message) -> None:
@@ -647,8 +645,7 @@ class BotController:
 
     async def process_private(self, _client: Client, msg: Message) -> None:
         if self.custom_switch:
-            obj = getattr(msg, self.get_file_type(msg), None)
-            if obj:
+            if obj := getattr(msg, self.get_file_type(msg), None):
                 await msg.reply('```{}```\n{}'.format(str(obj), 'Resolution: `{}`'.format(msg.photo.file_size / (
                         msg.photo.width * msg.photo.height) * 1000) if msg.photo else ''), parse_mode='markdown')
         if self.echo_switch:

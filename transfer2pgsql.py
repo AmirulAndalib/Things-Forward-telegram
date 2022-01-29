@@ -71,16 +71,23 @@ async def main() -> None:
 
 def transfer(obj: Tuple[int, str, str, str]) -> Tuple[Union[bool, Any], ...]:
     def str2bool(x: str) -> bool:
-        return True if x == 'Y' else False
+        return x == 'Y'
     return tuple(map(lambda x: str2bool(x) if isinstance(x, str) else x, obj))
 
 
 async def exec_and_insert(cursor, sql: str, pg_connection, insert_sql: str,
                           process: Callable[[Any], Any] = None, bigdata: bool = False) -> None:
     print('Processing table:', sql[13:])
-    if await pg_connection.fetchrow(f'{sql} LIMIT 1') is not None:
-        if input(f'Table {sql[13:]} has data, do you still want to process insert? [y/N]: ').strip().lower() != 'y':
-            return
+    if (
+        await pg_connection.fetchrow(f'{sql} LIMIT 1') is not None
+        and input(
+            f'Table {sql[13:]} has data, do you still want to process insert? [y/N]: '
+        )
+        .strip()
+        .lower()
+        != 'y'
+    ):
+        return
     if bigdata:
         step = 0
         await cursor.execute(f'{sql} LIMIT {step}, 1000')

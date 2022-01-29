@@ -63,8 +63,11 @@ class CheckFile(PgSQLdb):
 
     @staticmethod
     def check_photo(photo: Photo) -> bool:
-        return not (photo.file_size / (
-                    photo.width * photo.height) * 1000 < CheckFile.min_resolution or photo.file_size < 40960)
+        return (
+            photo.file_size / (photo.width * photo.height) * 1000
+            >= CheckFile.min_resolution
+            and photo.file_size >= 40960
+        )
 
     async def update_forward_target(self, chat_id: int, target: str) -> None:
         if await self.query1('''SELECT * FROM "special_forward" WHERE "chat_id" = $1''', chat_id):
@@ -189,9 +192,7 @@ class RedisHelper:
         return await self._basic_s_query('bypass', client_id)
 
     async def query_channel_mapping(self, client_id: int) -> int | None:
-        if result := await self.conn.get(f'{client_id}'):
-            return int(result)
-        return None
+        return int(result) if (result := await self.conn.get(f'{client_id}')) else None
 
     async def get(self, key: str) -> bytes | None:
         return await self.conn.get(key)

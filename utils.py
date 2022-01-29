@@ -85,8 +85,7 @@ class Plugin:
 
     @classmethod
     async def create_plugin(cls, *_args) -> Plugin:
-        self = cls()
-        return self
+        return cls()
 
     async def plugin_start(self) -> None:
         pass
